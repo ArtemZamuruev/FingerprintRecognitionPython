@@ -1,5 +1,6 @@
 from PIL import Image
 import sys
+import math
 
 
 img_data = {
@@ -8,6 +9,7 @@ img_data = {
 }
 
 gray_coef = (0.299, 0.587, 0.114)
+
 
 def getPMap():
 	try:
@@ -61,6 +63,41 @@ def listToLofL(in_list):
 	res_list = [ in_list[i*img_data["size"][0]:i*img_data["size"][0]+img_data["size"][0]] for i in range(img_data["size"][1])] 
 	return res_list
 
+
+def Gaussian(x,y,om):
+	f1 = float(1.0/(2.0*math.pi*math.pow(om,2)))
+	xy = (math.pow(x,2)+math.pow(y,2))*(-1.0)
+	f2 = math.exp(float(xy)/float(2.0*math.pow(om,2)))
+	return float(f1*f2)
+
+def GaussKernelGenerator(kern_size, omega):
+	kernel = [[ 0 for col in range(kern_size[0])] for row in range(kern_size[1])]
+	
+	kr = len(kernel)
+	kc = len(kernel[0])
+	hkr = int(kr/2)
+	hkc = int(kc/2)
+
+	for r in range(hkr+1):
+		for c in range(hkc+1):
+			kernel[r][c] = kernel[kr-r-1][c] = kernel[r][kc-c-1] = kernel[kr-r-1][kc-c-1] = Gaussian(r,c,omega)
+
+
+
+	print "\n\n\n"
+	for r in range(len(kernel)):
+		st = ""
+		for c in range(len(kernel[r])):
+			st+="%.5f\t"%kernel[r][c]
+		print st+"\n"
+
+
+def gaussianBlur(kern_size, omega):
+	kernel = GaussKernelGenerator(kern_size, omega)
+	
+
+	
+
 def Threshold(pix_map, koef = 0.15):
 	h = img_data["size"][1]
 	w = img_data["size"][0]
@@ -113,9 +150,5 @@ def Threshold(pix_map, koef = 0.15):
 
 	return res_pix_map
 
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.07))
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.09))
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.12))
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.15))
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.2))
-showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.3))
+#showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.15))
+gaussianBlur((5,5),1)
