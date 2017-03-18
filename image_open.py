@@ -1,26 +1,33 @@
 from PIL import Image
 import sys
 import math
+# import os
 
-
+# A dictionary which contains info about a handling image
 img_data = {
     "mode": "",
     "size": "",
 }
 
-gray_coef = (0.299, 0.587, 0.114)
-def getPMap():
-    try:
-        img = Image.open(sys.argv[1])
-        img_data["mode"] = img.mode
-        img_data["size"] = img.size
-    except:
-        print "Error opening image!\n"
-
+# Number of color channels works with
 col_channels = 3
 
+# Coefficients to make a pixel gray
+gray_coef = (0.299, 0.587, 0.114)
+
 
 def getPMap():
+    """ Get linear list of image pixels
+
+    Method opens an image and returns a list of
+    pixel tuples. Path to image extracts from 1st console
+    argument.
+
+    Returns:
+        List of tupples, where every tuple reperesnts
+        a pixel of image. List length is H x W of image.pixel
+        Example of return [(233, 100, 12), (203, 203, 2), ...]
+    """
     try:
         img = Image.open(sys.argv[1])
         img_data["mode"] = img.mode
@@ -32,12 +39,14 @@ def getPMap():
     return pixel_map
 
 
+# Method to make an image from linear list of pixel tuples
 def ImageFromPixMap(pix_map):
     new_img = Image.new(img_data["mode"], img_data["size"])
     new_img.putdata(pix_map)
     return new_img
 
 
+# Method which saves an image represented as linear list of pixel tuples
 def saveImageFromMap(pix_map, img_name):
     img = ImageFromPixMap(pix_map)
     img.save(img_name)
@@ -55,7 +64,7 @@ def grayscalePixMap(pix_map):
     return gray_pix_map
 
 
-def getGrayPixel(pixel_tuple, method="lightness"):
+def getGrayPixel(pixel_tuple, method="average"):
     pix_val = 0
 
     if method == "average":
@@ -71,7 +80,8 @@ def getGrayPixel(pixel_tuple, method="lightness"):
 
 
 def listToLofL(in_list):
-    res_list = [in_list[i * img_data["size"][0]:i * img_data["size"][0] + img_data["size"][0]] for i in range(img_data["size"][1])]
+    res_list = [in_list[i * img_data["size"][0]:i * img_data["size"]
+                        [0] + img_data["size"][0]] for i in range(img_data["size"][1])]
     return res_list
 
 
@@ -80,9 +90,6 @@ def LofLtolist(lofl):
     for inlist in lofl:
         newlist.extend(inlist)
     return newlist
-
-
-# def calculatePixValue(kernel, pixels):
 
 
 def Gaussian(x, y, om):
@@ -104,7 +111,8 @@ def GaussKernelGenerator(kern_size, omega):
 
     for r in range(hkr + 1):
         for c in range(hkc + 1):
-            kernel[r][c] = kernel[kr - r - 1][c] = kernel[r][kc - c - 1] = kernel[kr - r - 1][kc - c - 1] = Gaussian(r, c, omega)
+            kernel[r][c] = kernel[kr - r - 1][c] = kernel[r][kc - c -
+                                                             1] = kernel[kr - r - 1][kc - c - 1] = Gaussian(r, c, omega)
 
     return kernel
 
@@ -130,19 +138,61 @@ def gaussianBlur(pix_map, kern_size, omega):
             ]
             pix_sums = [0, 0, 0]
 
-            # surr_pixels_number = len(surr_pixels) * len(surr_pixels[0])
-
             for r in range(len(surr_pixels)):
                 for c in range(len(surr_pixels[0])):
-                    # for ch_val_ind in range(len(surr_pixels[0][0])):
                     for ch_val_ind in range(3):
-                        pix_sums[ch_val_ind] += float(surr_pixels[r][c][ch_val_ind]) * kernel[r][c]
-            # pix_val = [int(pix_sums[chn]) for chn in range(len(surr_pixels[0][0]))]
+                        pix_sums[
+                            ch_val_ind] += float(surr_pixels[r][c][ch_val_ind]) * kernel[r][c]
             pix_val = [int(pix_sums[chn]) for chn in range(3)]
             pix_val = tuple(pix_val)
 
             lofl_out[row][col] = pix_val
     return lofl_out
+
+
+def MedianFilter(pix_map, aperture_size, color_channel):
+    sq_map = listToLofL(pix_map)
+    sq_map_out = list(sq_map)
+
+    ah = aperture_size[0]
+    aw = aperture_size[1]
+    ah2 = int(ah / 2.0)
+    aw2 = int(aw / 2.0)
+
+    central = int((ah * aw) / 2.0) + 1
+
+    surr_pixels = [[0 for c in range(aw)] for r in range(ah)]
+
+    iter_counter = 0
+    iter_total = (len(sq_map) - ah2 * 2) * (len(sq_map[0]) - aw2 * 2)
+
+    for row in range(ah2, len(sq_map_out) - ah2):
+        for col in range(aw2, len(sq_map_out[0]) - aw2):
+            surr_pixels = [
+                [
+                    sq_map_out[r][c] for c in range(-1 * aw2 + col, aw2 + col + 1)
+                ] for r in range(-1 * ah2 + row, ah2 + row + 1)
+            ]
+            surr_pixels_linear = LofLtolist(surr_pixels)
+
+            pixels_r = [pix[0] for pix in surr_pixels_linear]
+            pixels_g = [pix[1] for pix in surr_pixels_linear]
+            pixels_b = [pix[2] for pix in surr_pixels_linear]
+
+            pixels_r.sort()
+            pixels_g.sort()
+            pixels_b.sort()
+
+            # surr_pixels_linear.sort(key=lambda pixel: pixel[color_channel])
+
+            iter_counter += 1
+
+            print "\r\bMedian Filter: %.2f percents completed" % (iter_counter * 100 / iter_total)
+            sq_map_out[row][col] = tuple([pixels_r[central], pixels_g[central], pixels_b[central]])
+            # sq_map_out[row][col] = surr_pixels_linear[central]
+
+    pix_map_out = LofLtolist(sq_map_out)
+    return pix_map_out
 
 
 # Bradley - Roth algorythm implementation
@@ -207,13 +257,9 @@ def Threshold(pix_map, koef=0.15):
 
 
 in_map = getPMap()
-ttt = Threshold(in_map, koef=0.07)
-showImageFromMap(ttt)
-saveImageFromMap(ttt, "finger_original_tr.png")
-lofl_map = gaussianBlur(in_map, (5, 5), 2)
-list_map = LofLtolist(lofl_map)
-showImageFromMap(list_map)
-saveImageFromMap(list_map, "finger_blur.png")
-tmpa = Threshold(list_map, koef=0.07)
-showImageFromMap(tmpa)
-saveImageFromMap(tmpa, "finger_tr_after_gauss.png")
+
+showImageFromMap(in_map)
+
+after_median = MedianFilter(in_map, (3, 3), 1)
+
+showImageFromMap(after_median)
