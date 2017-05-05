@@ -5,6 +5,11 @@ import copy
 import progressbar as pb
 # import os
 
+'''
+Python image handling for fingerprints recognition.
+Code doesn't use Open CV.
+'''
+
 # A dictionary which contains info about a handling image
 img_data = {
     "mode": "",
