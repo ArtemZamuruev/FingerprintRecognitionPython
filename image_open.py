@@ -1,6 +1,8 @@
 from PIL import Image
 import sys
 import math
+import copy
+import progressbar as pb
 # import os
 
 # A dictionary which contains info about a handling image
@@ -111,8 +113,7 @@ def GaussKernelGenerator(kern_size, omega):
 
     for r in range(hkr + 1):
         for c in range(hkc + 1):
-            kernel[r][c] = kernel[kr - r - 1][c] = kernel[r][kc - c -
-                                                             1] = kernel[kr - r - 1][kc - c - 1] = Gaussian(r, c, omega)
+            kernel[r][c] = kernel[kr - r - 1][c] = kernel[r][kc - c - 1] = kernel[kr - r - 1][kc - c - 1] = Gaussian(r, c, omega)
 
     return kernel
 
@@ -141,8 +142,7 @@ def gaussianBlur(pix_map, kern_size, omega):
             for r in range(len(surr_pixels)):
                 for c in range(len(surr_pixels[0])):
                     for ch_val_ind in range(3):
-                        pix_sums[
-                            ch_val_ind] += float(surr_pixels[r][c][ch_val_ind]) * kernel[r][c]
+                        pix_sums[ch_val_ind] += float(surr_pixels[r][c][ch_val_ind]) * kernel[r][c]
             pix_val = [int(pix_sums[chn]) for chn in range(3)]
             pix_val = tuple(pix_val)
 
@@ -193,6 +193,60 @@ def MedianFilter(pix_map, aperture_size, color_channel):
 
     pix_map_out = LofLtolist(sq_map_out)
     return pix_map_out
+
+
+def ApplyMatrixFilter(lin_pmap, matrix):
+    sq_map = listToLofL(lin_pmap)
+    sq_map_out = copy.copy(sq_map)
+
+    imh = len(sq_map)
+    imw = len(sq_map[0])
+
+    mah = len(matrix)
+    maw = len(matrix[0])
+
+    hmah = int(mah / 2.0)
+    hmaw = int(maw / 2.0)
+
+    i_counter = 0
+    i_total = (imh - mah) * (imw - maw)
+
+    bar = pb.ProgressBar().start()
+
+    for row in range(hmah, imh - hmah):
+        for col in range(hmaw, imw - hmaw):
+            pix_matrix = [
+                [sq_map_out[r][c] for c in range(-1 * hmaw + col, hmaw + col + 1)] for r in range(-1 * hmah + row, hmah + row + 1)
+            ]
+            # Some actions with matrix and result
+            sq_map_out[row][col] = getConvolution(pix_matrix, matrix)
+
+            i_counter += 1
+            bar.update(int((i_counter * 100.0) / i_total))
+
+    bar.finish()
+    return sq_map_out
+
+
+def showGaussBlur():
+    in_img = getPMap()
+    gMatrix = GaussKernelGenerator((5, 5), 1)
+    gra_img = grayscalePixMap(in_img)
+    gResult = ApplyMatrixFilter(gra_img, gMatrix)
+    lin_gResult = LofLtolist(gResult)
+    showImageFromMap(lin_gResult)
+
+
+def getConvolution(in_matr, conv_matr, div=1.0):
+    # res = 0.0
+    red, green, blue = 0, 0, 0
+
+    for r in range(len(in_matr)):
+        for c in range(len(in_matr[0])):
+            red += (in_matr[r][c][0] * conv_matr[r][c] * (1.0 / div))
+            green += (in_matr[r][c][1] * conv_matr[r][c] * (1.0 / div))
+            blue += (in_matr[r][c][2] * conv_matr[r][c] * (1.0 / div))
+    return tuple([int(red), int(green), int(blue)])
 
 
 # Bradley - Roth algorythm implementation
@@ -256,10 +310,4 @@ def Threshold(pix_map, koef=0.15):
 # showImageFromMap(Threshold(grayscalePixMap(getPMap()), koef=0.15))
 
 
-in_map = getPMap()
-
-showImageFromMap(in_map)
-
-after_median = MedianFilter(in_map, (3, 3), 1)
-
-showImageFromMap(after_median)
+showGaussBlur()
