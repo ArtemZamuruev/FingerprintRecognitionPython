@@ -16,8 +16,14 @@ def openImagesInFolder(folder):
         return False
 
 
-def showOneImage(img, winname="Fingerprints"):
+def showImage(img, winname="Fingerprints", trackbar=None):
     cv.imshow(winname, img)
+    if trackbar is not None:
+        cv.createTrackbar(trackbar["Name"],
+                          winname,
+                          trackbar["Value"],
+                          trackbar["Count"],
+                          trackbar["Update"])
 
 
 def getKey(delay=0):
@@ -78,12 +84,12 @@ for img in imgs:
 
     # Apply median filter to smooth the image
     smoothed = applyMedianFilter(grayed)
-    showOneImage(smoothed, winname="Smoothed")
+    showImage(smoothed, winname="Smoothed")
 
     # Binarization
     binarized = otsuThreshold(smoothed)
     # binarized = binaryThreshold(smoothed, thresh=120)
-    showOneImage(binarized, winname="Binarized")
+    showImage(binarized, winname="Binarized")
 
     # Wait for any key before switch to another image
     getKey()
