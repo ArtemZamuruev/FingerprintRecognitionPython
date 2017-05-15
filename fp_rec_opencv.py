@@ -64,24 +64,26 @@ def binaryThreshold(img, thresh=100):
     return cv.threshold(img, thresh, 255, cv.THRESH_BINARY)[1]
 
 
+# Make a list of images stored in given folder
 imgs = openImagesInFolder("./Fingerprints/")
+
+# Loop this images
 for img in imgs:
+
+    # Show original image to comapare transitions
     showOneImage(img, winname="Original")
+
+    # Convert image to grayscale
     grayed = imgToGray(img)
 
+    # Apply median filter to smooth the image
     smoothed = applyMedianFilter(grayed)
     showOneImage(smoothed, winname="Smoothed")
 
-
+    # Binarization
     binarized = otsuThreshold(smoothed)
     # binarized = binaryThreshold(smoothed, thresh=120)
     showOneImage(binarized, winname="Binarized")
 
-
-
-    # kernel = np.ones((5, 5), np.uint8)
-
-    # closed = cv.morphologyEx(binarized, cv.MORPH_CLOSE, kernel)
-    # showOneImage(closed, "Closed")
-
+    # Wait for any key before switch to another image
     getKey()
