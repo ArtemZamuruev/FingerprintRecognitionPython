@@ -46,16 +46,42 @@ def writeImg(img, folder="./", ext="png"):
         print "Error writing image. Path: %s" % nf_path
         return False
 
+
+def imgToGray(img):
+    return cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+
+def applyMedianFilter(img):
+    return cv.medianBlur(img, 5)
+
+
+def otsuThreshold(img):
+    ret, thr = cv.threshold(img, 0, 255, cv.THRESH_OTSU)
+    return thr
+
+
+def binaryThreshold(img, thresh=100):
+    return cv.threshold(img, thresh, 255, cv.THRESH_BINARY)[1]
+
+
 imgs = openImagesInFolder("./Fingerprints/")
 for img in imgs:
     showOneImage(img, winname="Original")
-    kernel = np.array([
-        [1, 1, 1, 1, 1],
-        [1, 3, 3, 3, 1],
-        [1, 3, 5, 3, 1],
-        [1, 3, 3, 3, 3],
-        [1, 1, 1, 1, 1]
-    ])
-    closed = cv.morphologyEx(img, cv.MORPH_CLOSE, kernel)
-    showOneImage(closed, "Closed")
+    grayed = imgToGray(img)
+
+    smoothed = applyMedianFilter(grayed)
+    showOneImage(smoothed, winname="Smoothed")
+
+
+    binarized = otsuThreshold(smoothed)
+    # binarized = binaryThreshold(smoothed, thresh=120)
+    showOneImage(binarized, winname="Binarized")
+
+
+
+    # kernel = np.ones((5, 5), np.uint8)
+
+    # closed = cv.morphologyEx(binarized, cv.MORPH_CLOSE, kernel)
+    # showOneImage(closed, "Closed")
+
     getKey()
