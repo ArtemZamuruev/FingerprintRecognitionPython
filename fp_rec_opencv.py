@@ -86,8 +86,26 @@ def smoothUpdate(x):
     newSmoothedImg = applyMedianFilter(grayed, newKernelSize)
     showImage(newSmoothedImg, winname="Smoothed")
     newBinarized = otsuThreshold(newSmoothedImg)
-    showImage(newBinarized, winname="Binarized")
+    showImage(newBinarized, winname="OTSU Binarized")
 
+
+def thresholdUpdate(x):
+    global smoothed
+    track_position = int(
+        cv.getTrackbarPos(
+            "Threshold",
+            "Threshold Binarized"
+        )
+    )
+
+    if track_position < 0:
+        return
+
+    newBinarizedThreshold = binaryThreshold(
+        smoothed,
+        thresh=track_position
+    )
+    showImage(newBinarizedThreshold, winname="Threshold Binarized")
 
 # Make a list of images stored in given folder
 imgs = openImagesInFolder("./Fingerprints/")
@@ -112,9 +130,19 @@ for img in imgs:
     showImage(smoothed, winname="Smoothed", trackbar=smoothTrackbar)
 
     # Binarization
-    binarized = otsuThreshold(smoothed)
-    # binarized = binaryThreshold(smoothed, thresh=120)
-    showImage(binarized, winname="Binarized")
+    binarized_otsu = otsuThreshold(smoothed)
+    showImage(binarized_otsu, winname="OTSU Binarized")
+
+    binarized_threshold = binaryThreshold(smoothed, thresh=100)
+    thresholdTrackbar = {
+        "Name": "Threshold",
+        "Value": 100,
+        "Count": 255,
+        "Update": thresholdUpdate
+    }
+    showImage(binarized_threshold,
+              winname="Threshold Binarized",
+              trackbar=thresholdTrackbar)
 
     # Wait for any key before switch to another image
     getKey()
