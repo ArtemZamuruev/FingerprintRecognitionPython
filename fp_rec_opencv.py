@@ -57,8 +57,8 @@ def imgToGray(img):
     return cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
 
-def applyMedianFilter(img):
-    return cv.medianBlur(img, 5)
+def applyMedianFilter(img, kernsize=5):
+    return cv.medianBlur(img, kernsize)
 
 
 def otsuThreshold(img):
@@ -70,6 +70,25 @@ def binaryThreshold(img, thresh=100):
     return cv.threshold(img, thresh, 255, cv.THRESH_BINARY)[1]
 
 
+def smoothUpdate(x):
+    global grayed
+    track_position = int(
+        cv.getTrackbarPos(
+            "Kernel Size",
+            "Smoothed"
+        )
+    )
+
+    if track_position < 0:
+        return
+
+    newKernelSize = track_position * 2 + 1
+    newSmoothedImg = applyMedianFilter(grayed, newKernelSize)
+    showImage(newSmoothedImg, winname="Smoothed")
+    newBinarized = otsuThreshold(newSmoothedImg)
+    showImage(newBinarized, winname="Binarized")
+
+
 # Make a list of images stored in given folder
 imgs = openImagesInFolder("./Fingerprints/")
 
@@ -77,14 +96,20 @@ imgs = openImagesInFolder("./Fingerprints/")
 for img in imgs:
 
     # Show original image to comapare transitions
-    showOneImage(img, winname="Original")
+    showImage(img, winname="Original")
 
     # Convert image to grayscale
     grayed = imgToGray(img)
 
     # Apply median filter to smooth the image
     smoothed = applyMedianFilter(grayed)
-    showImage(smoothed, winname="Smoothed")
+    smoothTrackbar = {
+        "Name": "Kernel Size",
+        "Value": 1,
+        "Count": 5,
+        "Update": smoothUpdate
+    }
+    showImage(smoothed, winname="Smoothed", trackbar=smoothTrackbar)
 
     # Binarization
     binarized = otsuThreshold(smoothed)
