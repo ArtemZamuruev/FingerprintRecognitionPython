@@ -70,6 +70,36 @@ def binaryThreshold(img, thresh=100):
     return cv.threshold(img, thresh, 255, cv.THRESH_BINARY)[1]
 
 
+def adaptiveThreshold_1(img):
+    thr = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 11, 2)
+    return thr
+
+
+def adaptiveThreshold_2(img):
+    return cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+
+
+def sobelFilter(img):
+    return (cv.Sobel(img, cv.CV_8U, 1, 0), cv.Sobel(img, cv.CV_8U, 0, 1))
+
+def addTwoImages(img1, img2, alpha):
+    beta = float(1 - alpha)
+    return cv.addWeighted(img1, alpha, img2, beta, 0)
+
+
+def equalHist(img):
+    return cv.equalizeHist(img)
+
+
+def sharpenImage(img, kcenter=9):
+    kernel = np.array([
+        [-1, -1, -1],
+        [-1, kcenter, -1],
+        [-1, -1, -1]
+    ])
+    return cv.filter2D(img, cv.CV_8U, kernel)
+
+
 def smoothUpdate(x):
     global grayed
     track_position = int(
@@ -85,12 +115,13 @@ def smoothUpdate(x):
     newKernelSize = track_position * 2 + 1
     newSmoothedImg = applyMedianFilter(grayed, newKernelSize)
     showImage(newSmoothedImg, winname="Smoothed")
-    newBinarized = otsuThreshold(newSmoothedImg)
-    showImage(newBinarized, winname="OTSU Binarized")
-
+    newBinarized = adaptiveThreshold_1(newSmoothedImg)
+    showImage(newBinarized, winname="Adaptive 1")
+    newBinarized_2 = adaptiveThreshold_2(newSmoothedImg)
+    showImage(newBinarized_2, winname="Adaptive 2")
 
 def thresholdUpdate(x):
-    global smoothed
+    global hist
     track_position = int(
         cv.getTrackbarPos(
             "Threshold",
@@ -102,10 +133,11 @@ def thresholdUpdate(x):
         return
 
     newBinarizedThreshold = binaryThreshold(
-        smoothed,
+        hist,
         thresh=track_position
     )
     showImage(newBinarizedThreshold, winname="Threshold Binarized")
+
 
 # Make a list of images stored in given folder
 imgs = openImagesInFolder("./Fingerprints/")
@@ -119,8 +151,21 @@ for img in imgs:
     # Convert image to grayscale
     grayed = imgToGray(img)
 
+    # Use histogram equalization:
+    # hist = equalHist(grayed)
+    # showImage(hist, winname="Histogram")
+
+    # sharpened = sharpenImage(grayed)
+    # showImage(sharpened, winname="Sharpened")
+
+    # Apply sobel filter:
+    # sobeled = sobelFilter(hist)
+    # showImage(sobeled[0], winname="Sobeled X")
+    # showImage(sobeled[1], winname="Sobeled Y")
+    # showImage(addTwoImages(sobeled[0], sobeled[1], 0.5), winname="Sobeled Together")
+
     # Apply median filter to smooth the image
-    smoothed = applyMedianFilter(grayed)
+    smoothed = applyMedianFilter(grayed, kernsize=3)
     smoothTrackbar = {
         "Name": "Kernel Size",
         "Value": 1,
@@ -130,19 +175,34 @@ for img in imgs:
     showImage(smoothed, winname="Smoothed", trackbar=smoothTrackbar)
 
     # Binarization
-    binarized_otsu = otsuThreshold(smoothed)
-    showImage(binarized_otsu, winname="OTSU Binarized")
+    # binarized_otsu = otsuThreshold(hist)
+    # showImage(binarized_otsu, winname="OTSU Binarized")
 
-    binarized_threshold = binaryThreshold(smoothed, thresh=100)
-    thresholdTrackbar = {
-        "Name": "Threshold",
-        "Value": 100,
-        "Count": 255,
-        "Update": thresholdUpdate
-    }
-    showImage(binarized_threshold,
-              winname="Threshold Binarized",
-              trackbar=thresholdTrackbar)
+    thr_1 = adaptiveThreshold_1(smoothed)
+    showImage(thr_1, winname="Adaptive 1")
+
+    thr_2 = adaptiveThreshold_2(smoothed)
+    showImage(thr_2, winname="Adaptive 2")
+
+
+    # sobeled2 = addTwoImages(sobeled[0], sobeled[1], 0.5)
+    # binotsu2 = otsuThreshold(sobeled2)
+    # showImage(binotsu2, winname="Fffff")
+
+
+    # canny = cv.Canny(grayed, 100, 200)
+    # showImage(canny, winname="Canny")
+
+    # binarized_threshold = binaryThreshold(hist, thresh=100)
+    # thresholdTrackbar = {
+    #     "Name": "Threshold",
+    #     "Value": 100,
+    #     "Count": 255,
+    #     "Update": thresholdUpdate
+    # }
+    # showImage(binarized_threshold,
+    #           winname="Threshold Binarized",
+    #           trackbar=thresholdTrackbar)
 
     # Wait for any key before switch to another image
     getKey()
