@@ -216,33 +216,33 @@ for img_t in imgs:
     img = img_t[0]
 
     # Show original image to comapare transitions
-    # showImage(img, winname="Original")
+    showImage(img, winname="Original")
 
     # Convert image to grayscale
     grayed = imgToGray(img)
     showImage(grayed, winname="Grayed")
 
-    # grayed = cv.resize(grayed, (1024, 1024), interpolation=cv.INTER_CUBIC)
+    grayed = cv.resize(grayed, (1024, 1024), interpolation=cv.INTER_CUBIC)
 
-    # denoised = cv.fastNlMeansDenoising(grayed, h=7)
-    # showImage(denoised, winname="Denoised")
+    denoised = cv.fastNlMeansDenoising(grayed, h=7)
+    showImage(denoised, winname="Denoised")
 
-    # ker = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-    # denoised = cv.morphologyEx(denoised, cv.MORPH_DILATE, ker)
+    ker = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
+    denoised = cv.morphologyEx(denoised, cv.MORPH_DILATE, ker)
 
-    # # Blur it to remove some noise
-    # blured = applyBlur(denoised, kernsize=5, sigma=3.4)
-    # blured = cv.fastNlMeansDenoising(blured, h=7)
-    # showImage(blured, winname="Blured")
+    # Blur it to remove some noise
+    blured = applyBlur(denoised, kernsize=5, sigma=3.4)
+    blured = cv.fastNlMeansDenoising(blured, h=7)
+    showImage(blured, winname="Blured")
 
     # # Binarize image
-    # binarized = adaptiveBinarization(blured, bsize=45)
-    # binarized = cv.bitwise_not(binarized)
-    # binarized = removeSurroundNoise(denoised, binarized)
-    # closing_kernel_2 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-    # binarized = cv.morphologyEx(binarized, cv.MORPH_CLOSE, closing_kernel_2)
-    # binarized = cv.resize(binarized, (768, 768), interpolation=cv.INTER_CUBIC)
-    # showImage(binarized, winname="Binarized")
+    binarized = adaptiveBinarization(blured, bsize=45)
+    binarized = cv.bitwise_not(binarized)
+    binarized = removeSurroundNoise(denoised, binarized)
+    closing_kernel_2 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
+    binarized = cv.morphologyEx(binarized, cv.MORPH_CLOSE, closing_kernel_2)
+    binarized = cv.resize(binarized, (768, 768), interpolation=cv.INTER_CUBIC)
+    showImage(binarized, winname="Binarized")
 
     # # Image thinning
     # binarized = cv.resize(binarized, (256, 256), interpolation=cv.INTER_CUBIC)
