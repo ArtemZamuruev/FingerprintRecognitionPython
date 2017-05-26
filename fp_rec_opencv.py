@@ -202,7 +202,7 @@ def thinningGuoHall(imgIn):
 
 
 # Make a list of images stored in given folder
-imgs = openImagesInFolder("./Fingerprints/NIST/")
+imgs = openImagesInFolder("./Fingerprints/")
 
 
 # Files for sotring pathes to
@@ -239,8 +239,6 @@ for img_t in imgs:
     binarized = adaptiveBinarization(blured, bsize=45)
     binarized = cv.bitwise_not(binarized)
     binarized = removeSurroundNoise(denoised, binarized)
-    closing_kernel_2 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-    binarized = cv.morphologyEx(binarized, cv.MORPH_CLOSE, closing_kernel_2)
     binarized = cv.resize(binarized, (768, 768), interpolation=cv.INTER_CUBIC)
     showImage(binarized, winname="Binarized")
 
