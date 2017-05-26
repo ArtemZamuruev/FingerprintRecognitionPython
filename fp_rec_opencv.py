@@ -202,7 +202,7 @@ def thinningGuoHall(imgIn):
 
 
 # Make a list of images stored in given folder
-imgs = openImagesInFolder("./Fingerprints/")
+imgs = openImagesInFolder("./Fingerprints/NIST/")
 
 
 # Files for sotring pathes to
