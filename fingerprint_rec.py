@@ -8,11 +8,12 @@ import math
 
 
 def openImagesInFolder(folder):
-    print "Reading Images"
+    print "Reading Images in %s" % folder
     img_paths = [join(folder, fname)
                  for fname in listdir(folder)
                  if isfile(join(folder, fname))]
     try:
+        print "done"
         return [(cv.imread(img_path), img_path) for img_path in img_paths]
     except Exception:
         print "Something went wrong during opening images in folder: %s" % folder
@@ -47,7 +48,7 @@ def drawRects(img, rects, color=(20, 20, 250)):
         cv.rectangle(img, (x, y), (x + w, y + h), color)
 
 
-def writeImg(img, folder="./", ext="png"):
+def writeImg(img, folder="./res3/", ext="png"):
     nf_name = "res_%.5f.%s" % (time(), ext)
     nf_path = join(folder, nf_name)
     try:
@@ -81,7 +82,6 @@ def segmentation(img):
         for c in range(0, img.shape[1] - bsize, bsize):
             block = img[r: r + bsize, c: c + bsize]
             local_var = getBlockVariation(block)
-            # if float(local_var) / float(global_var) < 0.6:
             if local_var < global_var:
                 result_image[r: r + bsize, c: c + bsize] = np.zeros(block.shape, np.uint8)
     return result_image
@@ -116,9 +116,12 @@ def coherence_filter(img, sigma=15, str_sigma=15, blend=0.7, iter_n=5):
 def morphoSegmentation(img):
     print "Stage:\tMorphological Segmentation"
 
+    sep = np.zeros((img.shape[0], 1), np.uint8)
+    segm_ill = np.copy(img)
+
     coherenced = coherence_filter(img)
 
-    blured = cv.GaussianBlur(coherenced, (5, 5), 5)
+    blured = cv.GaussianBlur(coherenced, (5, 5), 4.8)
     blured = cv.fastNlMeansDenoising(blured, h=13)
     binary = cv.threshold(blured, 0, 255, cv.THRESH_OTSU)[1]
     binary = cv.bitwise_not(binary)
@@ -158,6 +161,10 @@ def morphoSegmentation(img):
             if segmask[r, c] == 255:
                 segmented[r, c] = 255
 
+    segm_ill = np.concatenate((segm_ill, sep, segmented, sep, segmask), axis=1)
+    writeImg(segm_ill)
+    showImage(segm_ill, winname="Segmentation")
+
     print "\t...done"
     return segmented
 
@@ -170,10 +177,12 @@ def calcNormPixel(pix, gmean, gvar, dmean, dvar):
         return float(dmean - float(v_1))
 
 
-def normalization(img, d_mean=100, d_var=255):
+def normalization(img, d_mean=194, d_var=105):
     print "Stage:\tNormaliztion"
     g_var = getBlockVariation(img)
     g_mean = np.sum(img) / img.size
+
+    sep = np.zeros((img.shape[0], 1), np.uint8)
 
     new_img = np.copy(img)
 
@@ -188,6 +197,10 @@ def normalization(img, d_mean=100, d_var=255):
                 d_mean,
                 d_var)
     print "\t...done"
+
+    ill = np.concatenate((img, sep, new_img), axis=1)
+    showImage(ill, winname="Normalization affect")
+    writeImg(ill)
     return new_img
 
 
@@ -215,11 +228,11 @@ def orientionalComputing(img, b_shape=(15, 15), step=None):
 
     print "Stage:\tComputing ridge angles"
 
+    writeImg(np.uint8(img))
+
     if step is None:
         step = max(b_shape)
 
-    # img = cv.resize(img, (img.shape[1]*2, img.shape[0] * 2), interpolation=cv.INTER_CUBIC)
-    # img = np.bitwise_not(img)
     img64 = np.float64(img)
 
     sobel_x = cv.Sobel(img64, cv.CV_64F, 1, 0)
@@ -242,15 +255,13 @@ def orientionalComputing(img, b_shape=(15, 15), step=None):
             orient_mask[i, j] = computeOrientationAngle(block_x, block_y)
 
     # new_img = np.zeros(img64.shape)
-    # new_img = np.copy(img)
-    # new_img = cv.cvtColor(new_img, cv.COLOR_GRAY2BGR)
+    new_img = np.copy(np.uint8(img))
+    new_img = cv.cvtColor(new_img, cv.COLOR_GRAY2BGR)
 
-    # for r in range(rc):
-    #     for c in range(cc):
-    #         if orient_mask[r, c] != 0:
-    #             drawLineFromPoint(new_img, (c, r), orient_mask[r, c], 4, two_dir=True)
-
-    # showImage(np.concatenate((sobel_x, sobel_y, orient_mask, new_img), axis=1), winname="Sobels")
+    for r in range(rc):
+        for c in range(cc):
+            if orient_mask[r, c] != 0:
+                drawLineFromPoint(new_img, (c, r), orient_mask[r, c], 4, two_dir=True)
 
     print "\t...done"
     return orient_mask
@@ -311,6 +322,7 @@ def thinningGuoHallIteration(img, iter):
 
 
 def shockAndBinarization(img):
+
     print "Stage:\tBinarization"
     bin_1 = cv.threshold(img, 0, 255, cv.THRESH_OTSU)[1]
     coh_filtered = coherence_filter(
@@ -318,16 +330,22 @@ def shockAndBinarization(img):
         sigma=13,
         str_sigma=13,
         blend=0.7,
-        iter_n=10)
+        iter_n=5)
     bin_2 = cv.threshold(coh_filtered, 0, 255, cv.THRESH_OTSU)[1]
-    bin_res = np.bitwise_not(bin_2)
+    bin_2 = np.bitwise_not(bin_2)
     print "\t...done"
-    return bin_res
+
+    sep = np.zeros((img.shape[0], 1), np.uint8)
+    ill = np.concatenate((img, sep, bin_1, sep, coh_filtered, sep, bin_2), axis=1)
+    showImage(ill, winname="BInarization Translations")
+    writeImg(ill)
+
+    return bin_2
 
 
 def thinningGuoHall(imgIn):
     print "Stage:\tGuo-Hall lines thinning"
-    img = imgIn / 255
+    img = np.copy(imgIn) / 255
 
     prev = np.zeros(img.shape, np.uint8)
 
@@ -346,6 +364,12 @@ def thinningGuoHall(imgIn):
         iter_counter += 1
 
     print "\t...done"
+
+    sep = np.zeros((img.shape[0], 1), np.uint8)
+    ill = np.concatenate((imgIn, sep, img * 255), axis=1)
+    showImage(ill, winname="Thinning Translations")
+    writeImg(ill)
+
     return img * 255
 
 
@@ -382,7 +406,7 @@ def minutaeDetection(img, postprocessing=True):
     minutaes_figure = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     minutaes_figure = np.float64(minutaes_figure)
     img /= 255
-    minutaeMap = np.zeros(img.shape, np.uint16)
+    minutaeMap = np.zeros(img.shape, np.uint8)
 
     rc, cc = img.shape
     for r in range(1, rc - 1):
@@ -413,43 +437,57 @@ def minutaeDetection(img, postprocessing=True):
             if cn == 2:
                 minutaeMap[r, c] = cn
 
-
     if not postprocessing:
-        print "\t...Minutiaes found: %d" % np.count_nonzero(minutaeMap)
+        print "\t...Minutiaes found (no post-processing): %d" % np.count_nonzero(minutaeMap)
         print "\t...done"
         return minutaeMap
 
     # Minutiaes postprocessing
-    false_terminations = np.zeros(minutaeMap.shape, np.int16)
+    filteredMap = np.zeros(minutaeMap.shape, np.uint8)
 
-    ns = 20
+    ns = 10
     rc, cc = minutaeMap.shape
 
-    for r in range(ns, rc - ns):
-        for c in range(ns, cc - ns):
+    for r in range(rc):
+        for c in range(cc):
             if minutaeMap[r, c] == 2:
-                nh_block = minutaeMap[r - ns: r + ns, c - ns: c + ns]
+
+                bl_r_f = r - ns
+                bl_c_f = c - ns
+                bl_r_t = r + ns
+                bl_c_t = c + ns
+
+                if bl_r_f < 0:
+                    bl_r_f = 0
+                if bl_c_f < 0:
+                    bl_c_f = 0
+                if bl_r_t >= rc:
+                    bl_r_t = rc - 1
+                if bl_c_t >= cc:
+                    bl_c_t = cc - 1
+
+                nh_block = minutaeMap[bl_r_f: bl_r_t, bl_c_f:bl_c_t]
                 count_twos = 0
                 br_c, bc_c = nh_block.shape
                 for br in range(br_c):
                     for bc in range(bc_c):
                         if nh_block[br, bc] == 2:
                             count_twos += 1
-                if count_twos < 4:
-                    false_terminations[r, c] = -2
+                if count_twos >= 3:
+                    filteredMap[r, c] = 2
 
-    minutaeMap = minutaeMap + false_terminations
+            if minutaeMap[r, c] == 6:
+                filteredMap[r, c] = 6
 
-
-    print "\t...Minutiaes found: %d" % np.count_nonzero(minutaeMap)
+    print "\t...Minutiaes found (post-processing done): %d" % np.count_nonzero(filteredMap)
     print "\t...done"
-    return minutaeMap
+    return filteredMap
 
 
-def drawMinutiaesOnImage(img, m_map, a_map):
+def drawMinutiaesOnImage(img, m_map, a_map, drawLines=True):
     print "Stage:\tDrawing minutiaes"
     figure_img = np.copy(img)
-    figure_img = np.float32(img)
+    # figure_img = np.float32(img)
     figure_img = cv.cvtColor(figure_img, cv.COLOR_GRAY2BGR)
     rc, cc = m_map.shape
     for r in range(rc):
@@ -458,13 +496,18 @@ def drawMinutiaesOnImage(img, m_map, a_map):
                 # Draw termination point
                 angle = a_map[r, c]
                 cv.circle(figure_img, (c, r), 4, (0, 255, 0))
-                drawLineFromPoint(figure_img, (c, r), angle, 7, color=(0, 0, 255), two_dir=True)
+                if drawLines:
+                    drawLineFromPoint(figure_img, (c, r), angle, 7, color=(0, 0, 255), two_dir=True)
             if m_map[r, c] == 6:
                 # Draw bifurcation point
                 angle = a_map[r, c]
                 cv.circle(figure_img, (c, r), 4, (0, 0, 255))
-                drawLineFromPoint(figure_img, (c, r), angle, 7, color=(0, 255, 0), two_dir=True)
+                if drawLines:
+                    drawLineFromPoint(figure_img, (c, r), angle, 7, color=(0, 255, 0), two_dir=True)
     print "\t...done"
+
+    writeImg(img)
+    writeImg(figure_img)
     return figure_img
 
 
@@ -492,19 +535,14 @@ def calculateHoughTransform(m1, m2, fi_range, fi_tol, fi_err, dx_err, dy_err):
 
             dfi_d = int(round(math.degrees(dfi)))
 
-            tr = (dx, dy, dfi_d)
-            transforms.append(tr)
+            tr_1 = (dx, dy, dfi_d)
+            tr_2 = (dx - 1, dy, dfi_d)
+            tr_3 = (dx + 1, dy, dfi_d)
 
-            # for e_x in range(dx - dx_err, dx + dx_err + 1):
-            #     for e_y in range(dy - dy_err, dy + dy_err + 1):
-            #         tr = (e_x, e_y, dfi_d)
-            #         transforms.append(tr)
+            transforms.append(tr_1)
+            transforms.append(tr_2)
+            transforms.append(tr_3)
 
-            # for e_fi in range(int(math.degrees(dfi - fi_err)), int(math.degrees(dfi + fi_err))):
-            #     for e_x in range(dx - dx_err, dx + dx_err + 1):
-            #         for e_y in range(dy - dy_err, dy + dy_err + 1):
-            #             tr = (e_x, e_y, e_fi)
-            #             transforms.append(tr)
     return transforms
 
 
@@ -524,7 +562,6 @@ def minutiaesMatching(m_set1, ms_set_2, fi_range=0, fi_tol=10, fi_err=0, dx_err=
     for m1 in m_set1:
         for m2 in ms_set_2:
             pair_counter += 1
-            # print "\t\t_Pair #%d" % pair_counter
             rates = calculateHoughTransform(m1, m2, fi_range, fi_tol, fi_err, dx_err, dy_err)
             for rate in rates:
                 rate_key = str(rate)
@@ -536,13 +573,16 @@ def minutiaesMatching(m_set1, ms_set_2, fi_range=0, fi_tol=10, fi_err=0, dx_err=
     ac_sorted = sorted(accumulator.items(), key=lambda x: x[1], reverse=True)
 
     correct_transform = ac_sorted[0][0]
+    transfrom_rate = ac_sorted[0][1]
+    max_min_count = max(len(m_set1), len(ms_set_2))
 
-    print "\tCorrect transform:"
-    print correct_transform
+
+    print "\tCorrect transform: %s with rate %d of %d" % (str(correct_transform), transfrom_rate, max_min_count)
     print "\t...done"
 
 
 def getMinutiesDescriptors(minutiaes_map, angles_map):
+    print "Stage:\t Getting Minutiae Descriptors"
     minutiae_set = []
     rc, cc = minutiaes_map.shape
     for r in range(rc):
@@ -550,6 +590,7 @@ def getMinutiesDescriptors(minutiaes_map, angles_map):
             if minutiaes_map[r, c] != 0:
                 minutae = (c, r, angles_map[r, c])
                 minutiae_set.append(minutae)
+    print "\t...done"
     return minutiae_set
 
 
@@ -561,39 +602,56 @@ def filterImage(img):
     return thinned_gh
 
 
+def drawMinutiaSets(mset, img=None):
+    figure_img = np.copy(img, np.uint8)
+
+    figure_img = cv.cvtColor(figure_img, cv.COLOR_GRAY2BGR)
+    for m in mset:
+        angle = m[2]
+        c = m[0]
+        r = m[1]
+        cv.circle(figure_img, (c, r), 4, (0, 255, 0))
+        drawLineFromPoint(figure_img, (c, r), angle, 7, color=(0, 0, 255), two_dir=True)
+    writeImg(figure_img)
+    return figure_img
+    print "\t...done"
+
+
 def compareTwoFingerprints(img_1, img_2):
 
     img_1 = imgToGray(img_1)
     img_2 = imgToGray(img_2)
 
-    originals = np.concatenate((img_1, img_2), axis=1)
-    showImage(originals, winname="Fingerprint images")
+    sep = np.zeros((img_1.shape[0], 1), np.uint8)
+
+    originals = np.concatenate((img_1, sep, img_2), axis=1)
+    writeImg(originals)
+    showImage(originals, winname="Input fingerprint images")
 
     print "\n"
     print "=" * 20
     print "Image 1:"
+
     filtered_1 = filterImage(img_1)
+    # minutaes_effect =
     min_map_1 = minutaeDetection(filtered_1)
     angle_map_1 = orientionalComputing(filtered_1, step=1)
     min_set_1 = getMinutiesDescriptors(min_map_1, angle_map_1)
-    # Extras: drawing
-    min_fig_1 = drawMinutiaesOnImage(img_1, min_map_1, angle_map_1)
 
     print "\n"
     print "Image 2:"
+
     filtered_2 = filterImage(img_2)
     min_map_2 = minutaeDetection(filtered_2)
-    angle_map_2 = orientionalComputing(min_map_2, step=1)
+    angle_map_2 = orientionalComputing(filtered_2, step=1)
     min_set_2 = getMinutiesDescriptors(min_map_2, angle_map_2)
-    # Extras: drawing
-    min_fig_2 = drawMinutiaesOnImage(img_2, min_map_2, angle_map_2)
+
+    min_set_1.extend(min_set_2)
+    drawMinutiaSets(min_set_1, img=img_1)
 
     print "\n"
     print "Comparing two images:"
-    minutiaesMatching(min_set_1, min_set_2, fi_range=range(-2, 3), fi_tol=10, fi_err=1, dx_err=1, dy_err=1)
-
-    min_total_figure = np.concatenate((min_fig_1, min_fig_2), axis=1)
-    showImage(min_total_figure, winname="Minutaes drawed on fingerprints")
+    minutiaesMatching(min_set_1, min_set_2, fi_range=range(-10, 10), fi_tol=5, fi_err=3, dx_err=5, dy_err=5)
 
     print "=" * 20
     print "\n"
@@ -601,38 +659,15 @@ def compareTwoFingerprints(img_1, img_2):
 
 def main():
     # Make a list of images stored in given folder
-    imgs = openImagesInFolder("./Fingerprints/TEST_1/")
-
-    # Files for sotring pathes to
-    # good and bad examples of fingerprints
-    # good_imgs = open("good.txt", 'w')
-    # bad_imgs = open("bad.txt", 'w')
+    imgs = openImagesInFolder("./fp_images/TEST_3/")
 
     compareTwoFingerprints(imgs[0][0], imgs[1][0])
 
     # Wait for any key before switch to another image
     k_code = getKey(delay=0)
 
-    # G key was pressed:
-    if k_code == 103:
-        try:
-            good_imgs.write(img_t[1] + "\n")
-        except Exception:
-            print "Error while writing GOOD image path"
-            # continue
-    # B key was pressed:
-    # elif k_code == 98:
-    #     try:
-    #         bad_imgs.write(img_t[1] + "\n")
-    #         os.remove(img_t[1])
-    #     except Exception:
-    #         print "Erorr while writing BAD image path"
-    # ESC was pressed:
-    elif k_code == 27:
-        # break
+    if k_code == 27:
         return
-    # else:
-        # continue
 
 
 if __name__ == "__main__":
