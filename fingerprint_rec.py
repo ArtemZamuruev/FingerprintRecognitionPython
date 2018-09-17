@@ -312,10 +312,10 @@ def thinningGuoHallIteration(img, iter):
     img = img.astype(np.uint8)
     marker_divided = marker_divided.astype(np.uint8)
 
-    print(type(img))
-    print(img.dtype)
-    print(type(marker_divided))
-    print(marker_divided.dtype)
+    # print(type(img))
+    # print(img.dtype)
+    # print(type(marker_divided))
+    # print(marker_divided.dtype)
 
 
     mul = np.bitwise_and(img, marker_divided)
